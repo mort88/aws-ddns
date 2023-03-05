@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+[ "$(id -nu)" != "root" ] && echo "This script should run as root" && exit 0
+
+. /etc/os-release
+case "$ID_LIKE" in
+  debian)
+    apt -y install python3-boto3 python3-click python3-requests
+    ;;
+  *)
+    echo "No actions defined for this OS"
+    ;;
+esac
+
 cp aws-ddns.default /etc/default/aws-ddns
 cp aws-ddns /usr/local/sbin/
 chmod 755 /usr/local/sbin/aws-ddns
