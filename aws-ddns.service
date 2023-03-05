@@ -1,0 +1,11 @@
+[Unit]
+Description=Route53 dynamic DNS update
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/default/%N
+ExecStart=/usr/local/sbin/aws-ddns
+
+[Install]
+WantedBy=multi-user.target

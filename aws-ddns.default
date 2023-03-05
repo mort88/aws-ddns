@@ -1,0 +1,8 @@
+# /etc/default/aws-ddns
+# Environment variables to control R53 DDNS updates
+#DDNS_AWS_PROFILE=aws_ddns
+#DDNS_LOOKUP_URL=http://ip.m13n.net/ip
+#DDNS_HOSTNAME=
+#DDNS_R53_ZONE_ID=
+#DDNS_TYPE=A
+#DDNS_TTL=60
