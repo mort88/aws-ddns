@@ -3,8 +3,8 @@
 [ "$(id -nu)" != "root" ] && echo "This script should run as root" && exit 0
 
 . /etc/os-release
-case "$ID_LIKE" in
-  debian)
+case "$ID" in
+  debian|ubuntu)
     apt -y install python3-boto3 python3-click python3-requests
     ;;
   *)
