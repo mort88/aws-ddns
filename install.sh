@@ -18,6 +18,8 @@ chmod 755 /usr/local/sbin/aws-ddns
 cp aws-ddns.service aws-ddns.timer /etc/systemd/system/
 
 systemctl daemon-reload
+systemctl enable --now aws-ddns.service
+systemctl enable --now aws-ddns.timer
 
 echo "Edit /etc/default/aws-ddns to enable DDNS updates"
 echo "At least add DDNS_R53_ZONE_ID and DDNS_HOSTNAME"
