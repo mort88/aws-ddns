@@ -12,7 +12,7 @@ case "$ID" in
     ;;
 esac
 
-cp aws-ddns.default /etc/default/aws-ddns
+cp -b --suffix=.bkp aws-ddns.default /etc/default/aws-ddns
 cp aws-ddns /usr/local/sbin/
 chmod 755 /usr/local/sbin/aws-ddns
 cp aws-ddns.service aws-ddns.timer /etc/systemd/system/
