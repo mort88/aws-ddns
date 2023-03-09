@@ -9,9 +9,9 @@ import click
 import boto3
 import botocore.exceptions
 
-DDNS_DEFAULT_PROFILE = 'aws_ddns'
-DEFAULT_LOOKUP_URL = 'http://ip.m13n.net/ip'
-DEFAULT_TYPE = 'A'
+DDNS_DEFAULT_PROFILE = "aws_ddns"
+DEFAULT_LOOKUP_URL = "http://ip.m13n.net/ip"
+DEFAULT_TYPE = "A"
 DEFAULT_TTL = 60
 CTX_SETTINGS = dict(max_content_width=180)
 IAM_POLICY = """
@@ -34,13 +34,55 @@ IAM_POLICY = """
 
 
 @click.command(context_settings=CTX_SETTINGS)
-@click.option('--profile', '-p', default=os.environ.get('DDNS_AWS_PROFILE', DDNS_DEFAULT_PROFILE), show_default=True, help='boto3 profile to use')
-@click.option('--lookup-url', '-l', default=os.environ.get('DDNS_LOOKUP_URL', DEFAULT_LOOKUP_URL), show_default=True, help='URL that returns the client IP (and nothing more)')
-@click.option('--host', '-h', default=os.environ.get('DDNS_HOSTNAME', ''), show_default=True, help='DDNS host name to use')
-@click.option('--zone-id', '-z', default=os.environ.get('DDNS_R53_ZONE_ID'), show_default=True, help='R53 zone ID for DDNS records')
-@click.option('--domain', '-D', default=os.environ.get('DDNS_DOMAIN'), show_default=True, help='Manually set the DDNS domain (defaults to lookup from R53 zone ID)')
-@click.option('--record-type', '-r', default=os.environ.get('DDNS_TYPE', DEFAULT_TYPE), show_default=True, help='DNS record type')
-@click.option('--ttl', '-t', default=os.environ.get('DDNS_TTL', DEFAULT_TTL), show_default=True, help='DNS record TTL')
+@click.option(
+    "--profile",
+    "-p",
+    default=os.environ.get("DDNS_AWS_PROFILE", DDNS_DEFAULT_PROFILE),
+    show_default=True,
+    help="boto3 profile to use",
+)
+@click.option(
+    "--lookup-url",
+    "-l",
+    default=os.environ.get("DDNS_LOOKUP_URL", DEFAULT_LOOKUP_URL),
+    show_default=True,
+    help="URL that returns the client IP (and nothing more)",
+)
+@click.option(
+    "--host",
+    "-h",
+    default=os.environ.get("DDNS_HOSTNAME", ""),
+    show_default=True,
+    help="DDNS host name to use",
+)
+@click.option(
+    "--zone-id",
+    "-z",
+    default=os.environ.get("DDNS_R53_ZONE_ID"),
+    show_default=True,
+    help="R53 zone ID for DDNS records",
+)
+@click.option(
+    "--domain",
+    "-D",
+    default=os.environ.get("DDNS_DOMAIN"),
+    show_default=True,
+    help="Manually set the DDNS domain (defaults to lookup from R53 zone ID)",
+)
+@click.option(
+    "--record-type",
+    "-r",
+    default=os.environ.get("DDNS_TYPE", DEFAULT_TYPE),
+    show_default=True,
+    help="DNS record type",
+)
+@click.option(
+    "--ttl",
+    "-t",
+    default=os.environ.get("DDNS_TTL", DEFAULT_TTL),
+    show_default=True,
+    help="DNS record TTL",
+)
 @click.pass_context
 def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
     """
@@ -52,7 +94,7 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
     """
 
     def print_help():
-        """ Print help message and exit """
+        """Print help message and exit"""
         click.echo(ctx.get_help())
         ctx.exit()
 
@@ -63,7 +105,7 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
     if not zone_id:
         click.echo(f"ERROR: No route53 zone ID given")
         print_help()
-    if profile in ['', 'None']:
+    if profile in ["", "None"]:
         profile = None
     try:
         b3s = boto3.session.Session(profile_name=profile)
@@ -74,9 +116,9 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
     # if domain is not specified manually we fetch it from the R53 zone ID
     if not domain:
         try:
-            r53 = b3s.client('route53')
+            r53 = b3s.client("route53")
             zone_info = r53.get_hosted_zone(Id=zone_id)
-            domain = zone_info['HostedZone']['Name']
+            domain = zone_info["HostedZone"]["Name"]
         except Exception as e:
             click.echo(f"ERROR: {e}")
             sys.exit(1)
@@ -98,9 +140,13 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
 
     # check if an update is needed
     if my_ip == ddns_ip:
-        click.echo(f"Local IP ({my_ip}) matches currently registered IP for {host} - no change")
+        click.echo(
+            f"Local IP ({my_ip}) matches currently registered IP for {host} - no change"
+        )
         sys.exit(0)
-    click.echo(f"Local IP ({my_ip}) doesn't match currently registered IP for {host} ({ddns_ip}) - update required")
+    click.echo(
+        f"Local IP ({my_ip}) doesn't match currently registered IP for {host} ({ddns_ip}) - update required"
+    )
 
     # update R53
     try:
@@ -115,15 +161,11 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
                             "Name": f"{ddns_host}",
                             "Type": f"{record_type}",
                             "TTL": ttl,
-                            "ResourceRecords": [
-                                {
-                                  "Value": f"{my_ip}"
-                                }
-                            ]
-                        }
+                            "ResourceRecords": [{"Value": f"{my_ip}"}],
+                        },
                     }
-                ]
-            }
+                ],
+            },
         )
     except Exception as e:
         click.echo(f"ERROR: {e}")
