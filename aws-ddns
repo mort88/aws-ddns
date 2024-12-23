@@ -95,8 +95,9 @@ def run_check(profile, lookup_url, host, zone_id, domain, ttl):
         try:
             ddns_ip = get_ip_address(ddns_host, family)
         except socket.gaierror as ex:
-            click.echo(f"{ddns_host}: {ex}")
-            print_help()
+            click.echo(f"ERROR: {ddns_host}: {ex}")
+            click.echo(f"ERROR: skipping {family}")
+            continue
 
         # lookup my IP
         try:
