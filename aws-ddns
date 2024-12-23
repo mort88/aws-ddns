@@ -5,6 +5,8 @@ import os
 import sys
 import socket
 import requests
+
+# import requests.packages.urllib3.util.connection
 import click
 import boto3
 import botocore.exceptions
@@ -31,6 +33,115 @@ IAM_POLICY = """
     ]
 }
 """
+
+
+def get_ip_address(hostname, family=socket.AF_INET):
+    try:
+        # Perform a DNS lookup for the given hostname with AF_INET (IPv4) as default
+        addr_info = socket.getaddrinfo(hostname, None, family)
+        # Extract the IP address from the address info
+        ip_address = addr_info[0][4][0]
+        return ip_address
+    except socket.gaierror as ex:
+        click.echo(f"Error resolving {hostname}: {ex}")
+        raise
+
+
+def get_ip_version():
+    # type: () -> Optional[int]
+    ip_version = requests.packages.urllib3.util.connection.allowed_gai_family()
+    if ip_version == socket.AF_INET6:
+        return 6
+    elif ip_version == socket.AF_INET:
+        return 4
+    return None
+
+
+def set_ip_version(ip_version: object = socket.AF_INET6):
+    # type: (str) -> bool
+    """
+    Sets preferred IP protocol version to use in requests / functions
+    Attention: this propagates
+    By default, AF_INET6 is used which preferes IPv6 but fallbacks to IPv4
+    """
+    if ip_version == socket.AF_INET:
+
+        def allowed_gai_family():
+            return socket.AF_INET
+
+    elif ip_version == socket.AF_INET6:
+
+        def allowed_gai_family():
+            if requests.packages.urllib3.util.connection.HAS_IPV6:
+                return socket.AF_INET6
+            return socket.AF_INET
+
+    else:
+        return False
+
+    requests.packages.urllib3.util.connection.allowed_gai_family = allowed_gai_family
+    return True
+
+
+def run_check():
+    for family in (socket.AF_INET, socket.AF_INET6):
+        if family == socket.AF_INET:
+            record_type = "A"
+        else:
+            record_type = "AAAA"
+
+        # get current IP
+        ddns_host = f"{host}.{domain}"
+        try:
+            ddns_ip = get_ip_address(ddns_host, family)
+        except socket.gaierror as ex:
+            click.echo(f"{ddns_host}: {ex}")
+            print_help()
+
+        # lookup my IP
+        try:
+            set_ip_version(family)
+            my_ip = requests.get(f"{lookup_url}?host={host}").text.strip()
+        except Exception as ex:
+            click.echo(f"ERROR: could not look up IP: {ex}")
+            click.echo(f"ERROR: skipping {family}")
+            continue
+
+        # check if an update is needed
+        if my_ip == ddns_ip:
+            click.echo(
+                f"Local IP ({my_ip}) matches currently registered IP for {host} - no change"
+            )
+        else:
+            click.echo(
+                f"Local IP ({my_ip}) doesn't match currently registered IP for {host} ({ddns_ip}) - update required"
+            )
+
+            # update R53
+            try:
+                response = r53.change_resource_record_sets(
+                    HostedZoneId=zone_id,
+                    ChangeBatch={
+                        "Comment": f"DDNS update for {ddns_host}",
+                        "Changes": [
+                            {
+                                "Action": "UPSERT",
+                                "ResourceRecordSet": {
+                                    "Name": f"{ddns_host}",
+                                    "Type": f"{record_type}",
+                                    "TTL": ttl,
+                                    "ResourceRecords": [{"Value": f"{my_ip}"}],
+                                },
+                            }
+                        ],
+                    },
+                )
+            except Exception as ex:
+                click.echo(f"ERROR: {ex}")
+                sys.exit(1)
+            click.echo(
+                f"Update complete - {ddns_host} = {my_ip} ({record_type}) (TTL {ttl})"
+            )
 
 
 @click.command(context_settings=CTX_SETTINGS)
@@ -109,8 +220,8 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
         profile = None
     try:
         b3s = boto3.session.Session(profile_name=profile)
-    except botocore.exceptions.ProfileNotFound as e:
-        click.echo(f"ERROR: {e}")
+    except botocore.exceptions.ProfileNotFound as ex:
+        click.echo(f"ERROR: {ex}")
         print_help()
 
     # if domain is not specified manually we fetch it from the R53 zone ID
@@ -119,58 +230,11 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
             r53 = b3s.client("route53")
             zone_info = r53.get_hosted_zone(Id=zone_id)
             domain = zone_info["HostedZone"]["Name"]
-        except Exception as e:
-            click.echo(f"ERROR: {e}")
+        except Exception as ex:
+            click.echo(f"ERROR: {ex}")
             sys.exit(1)
 
-    # get current IP
-    ddns_host = f"{host}.{domain}"
-    try:
-        ddns_ip = socket.gethostbyname(ddns_host)
-    except socket.gaierror as e:
-        click.echo(f"{ddns_host}: {e}")
-        print_help()
-
-    # get local IP
-    try:
-        my_ip = requests.get(f"{lookup_url}?host={host}").text.strip()
-    except Exception as e:
-        click.echo(f"ERROR: could not look up IP: {e}")
-        sys.exit(1)
-
-    # check if an update is needed
-    if my_ip == ddns_ip:
-        click.echo(
-            f"Local IP ({my_ip}) matches currently registered IP for {host} - no change"
-        )
-        sys.exit(0)
-    click.echo(
-        f"Local IP ({my_ip}) doesn't match currently registered IP for {host} ({ddns_ip}) - update required"
-    )
-
-    # update R53
-    try:
-        response = r53.change_resource_record_sets(
-            HostedZoneId=zone_id,
-            ChangeBatch={
-                "Comment": f"DDNS update for {ddns_host}",
-                "Changes": [
-                    {
-                        "Action": "UPSERT",
-                        "ResourceRecordSet": {
-                            "Name": f"{ddns_host}",
-                            "Type": f"{record_type}",
-                            "TTL": ttl,
-                            "ResourceRecords": [{"Value": f"{my_ip}"}],
-                        },
-                    }
-                ],
-            },
-        )
-    except Exception as e:
-        click.echo(f"ERROR: {e}")
-        sys.exit(1)
-    click.echo(f"Update complete - {ddns_host} = {my_ip} ({record_type}) (TTL {ttl})")
+    run_check()
 
 
 if __name__ == "__main__":
