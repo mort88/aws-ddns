@@ -43,7 +43,7 @@ def get_ip_address(hostname, family=socket.AF_INET):
         ip_address = addr_info[0][4][0]
         return ip_address
     except socket.gaierror as ex:
-        click.echo(f"Error resolving {hostname}: {ex}")
+        click.echo(f"Warning: Error resolving {hostname}: {ex}")
         raise
 
 
@@ -95,8 +95,8 @@ def run_check(profile, lookup_url, host, zone_id, domain, ttl):
         try:
             ddns_ip = get_ip_address(ddns_host, family)
         except socket.gaierror as ex:
-            click.echo(f"ERROR: {ddns_host}: {ex}")
-            click.echo(f"ERROR: skipping {family.name}")
+            click.echo(f"Warning: {ddns_host}: {ex}")
+            click.echo(f"Warning: skipping {family.name}")
             continue
 
         # lookup my IP
@@ -104,8 +104,8 @@ def run_check(profile, lookup_url, host, zone_id, domain, ttl):
             set_ip_version(family)
             my_ip = requests.get(f"{lookup_url}?host={host}").text.strip()
         except Exception as ex:
-            click.echo(f"ERROR: could not look up IP: {ex}")
-            click.echo(f"ERROR: skipping {family.name}")
+            click.echo(f"Warning: could not look up IP: {ex}")
+            click.echo(f"Warning: skipping {family.name}")
             continue
 
         # check if an update is needed
