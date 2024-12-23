@@ -117,6 +117,7 @@ def run_check(profile, lookup_url, host, zone_id, domain, ttl):
             )
 
             # update R53
+            click.echo(f"Updating {ddns_host} to {my_ip} ({record_type}, {ttl=})")
             try:
                 response = r53.change_resource_record_sets(
                     HostedZoneId=zone_id,
