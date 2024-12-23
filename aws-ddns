@@ -83,7 +83,7 @@ def set_ip_version(ip_version: object = socket.AF_INET6):
     return True
 
 
-def run_check():
+def run_check(profile, lookup_url, host, zone_id, domain, ttl):
     for family in (socket.AF_INET, socket.AF_INET6):
         if family == socket.AF_INET:
             record_type = "A"
@@ -234,7 +234,7 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
             click.echo(f"ERROR: {ex}")
             sys.exit(1)
 
-    run_check()
+    run_check(profile, lookup_url, host, zone_id, domain, ttl)
 
 
 if __name__ == "__main__":
