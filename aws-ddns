@@ -83,7 +83,15 @@ def set_ip_version(ip_version: object = socket.AF_INET6):
     return True
 
 
-def run_check(profile, lookup_url, host, zone_id, domain, ttl):
+def run_check(ctx):
+    r53 = ctx.obj['r53']
+    profile = ctx.obj['profile']
+    lookup_url = ctx.obj['lookup_url']
+    host = ctx.obj['host']
+    zone_id = ctx.obj['zone_id']
+    domain = ctx.obj['domain']
+    ttl = ctx.obj['ttl']
+
     for family in (socket.AF_INET, socket.AF_INET6):
         if family == socket.AF_INET:
             record_type = "A"
@@ -212,6 +220,15 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
         click.echo(ctx.get_help())
         ctx.exit()
 
+    ctx.ensure_object(dict)
+    ctx.obj['profile'] = profile
+    ctx.obj['lookup_url'] = lookup_url
+    ctx.obj['host'] = host
+    ctx.obj['zone_id'] = zone_id
+    ctx.obj['domain'] = domain
+    ctx.obj['record_type'] = record_type
+    ctx.obj['ttl'] = ttl
+
     # set up the prereqs
     if not host:
         click.echo(f"ERROR: No host argument given")
@@ -231,13 +248,14 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
     if not domain:
         try:
             r53 = b3s.client("route53")
+            ctx.obj['r53'] = r53
             zone_info = r53.get_hosted_zone(Id=zone_id)
             domain = zone_info["HostedZone"]["Name"]
         except Exception as ex:
             click.echo(f"ERROR: {ex}")
             sys.exit(1)
 
-    run_check(profile, lookup_url, host, zone_id, domain, ttl)
+    run_check(ctx)
 
 
 if __name__ == "__main__":
