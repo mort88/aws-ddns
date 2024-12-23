@@ -39,7 +39,6 @@ def get_ip_address(hostname, family=socket.AF_INET):
     try:
         # Perform a DNS lookup for the given hostname with AF_INET (IPv4) as default
         addr_info = socket.getaddrinfo(hostname, None, family)
-        click.echo(f"Resolved {hostname} to {addr_info}")
         # Extract the IP address from the address info
         ip_address = addr_info[0][4][0]
         return ip_address
@@ -57,7 +56,7 @@ def get_ip_version():
     return None
 
 
-def set_ip_version(ip_version: object = socket.AF_INET6):
+def set_ip_version(ip_version: object = socket.AF_INET6) -> bool:
     # type: (str) -> bool
     """
     Sets preferred IP protocol version to use in requests / functions
@@ -83,7 +82,7 @@ def set_ip_version(ip_version: object = socket.AF_INET6):
     return True
 
 
-def run_check(ctx):
+def run_check(ctx) -> None:
     r53 = ctx.obj['r53']
     profile = ctx.obj['profile']
     lookup_url = ctx.obj['lookup_url']
@@ -251,6 +250,8 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
             ctx.obj['r53'] = r53
             zone_info = r53.get_hosted_zone(Id=zone_id)
             domain = zone_info["HostedZone"]["Name"]
+            click.echo(f"Domain determined from route53: {domain}")
+            ctx.obj['domain'] = domain
         except Exception as ex:
             click.echo(f"ERROR: {ex}")
             sys.exit(1)
