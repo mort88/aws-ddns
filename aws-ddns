@@ -73,7 +73,8 @@ def set_ip_version(ip_version: object = socket.AF_INET6):
         def allowed_gai_family():
             if requests.packages.urllib3.util.connection.HAS_IPV6:
                 return socket.AF_INET6
-            return socket.AF_INET
+            # return socket.AF_INET
+            return None
 
     else:
         return False
@@ -109,15 +110,17 @@ def run_check(profile, lookup_url, host, zone_id, domain, ttl):
         # check if an update is needed
         if my_ip == ddns_ip:
             click.echo(
-                    f"{family.name}: Local IP ({my_ip}) matches currently registered IP for {host} - no change"
+                f"{family.name}: Local IP ({my_ip}) matches currently registered IP for {host} - no change"
             )
         else:
             click.echo(
-                    f"{family.name}: Local IP ({my_ip}) doesn't match currently registered IP for {host} ({ddns_ip}) - update required"
+                f"{family.name}: Local IP ({my_ip}) doesn't match currently registered IP for {host} ({ddns_ip}) - update required"
             )
 
             # update R53
-            click.echo(f"{family.name}: Updating {ddns_host} to {my_ip} ({record_type}, {ttl=})")
+            click.echo(
+                f"{family.name}: Updating {ddns_host} to {my_ip} ({record_type}, {ttl=})"
+            )
             try:
                 response = r53.change_resource_record_sets(
                     HostedZoneId=zone_id,
@@ -140,7 +143,7 @@ def run_check(profile, lookup_url, host, zone_id, domain, ttl):
                 click.echo(f"ERROR: {ex}")
                 sys.exit(1)
             click.echo(
-                    f"{family.name}: Update complete - {ddns_host} = {my_ip} ({record_type}) (TTL {ttl})"
+                f"{family.name}: Update complete - {ddns_host} = {my_ip} ({record_type}) (TTL {ttl})"
             )
 
 
