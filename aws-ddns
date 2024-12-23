@@ -35,7 +35,9 @@ IAM_POLICY = """
 """
 
 
-def get_ip_address(hostname, family=socket.AF_INET):
+def get_ip_address(hostname: str, family: object = socket.AF_INET):
+    """Return the IP address for the given hostname"""
+
     try:
         # Perform a DNS lookup for the given hostname with AF_INET (IPv4) as default
         addr_info = socket.getaddrinfo(hostname, None, family)
@@ -46,8 +48,9 @@ def get_ip_address(hostname, family=socket.AF_INET):
         raise
 
 
-def get_ip_version():
-    # type: () -> Optional[int]
+def get_ip_version() -> int:
+    """Return the IP protocol version"""
+
     ip_version = requests.packages.urllib3.util.connection.allowed_gai_family()
     if ip_version == socket.AF_INET6:
         return 6
@@ -57,7 +60,6 @@ def get_ip_version():
 
 
 def set_ip_version(ip_version: object = socket.AF_INET6) -> bool:
-    # type: (str) -> bool
     """
     Sets preferred IP protocol version to use in requests / functions
     Attention: this propagates
@@ -83,20 +85,25 @@ def set_ip_version(ip_version: object = socket.AF_INET6) -> bool:
 
 
 def run_check(ctx) -> None:
-    r53 = ctx.obj['r53']
-    profile = ctx.obj['profile']
-    lookup_url = ctx.obj['lookup_url']
-    host = ctx.obj['host']
-    zone_id = ctx.obj['zone_id']
-    domain = ctx.obj['domain']
-    ttl = ctx.obj['ttl']
+    """
+    Run the DDNS check and update if necessary
+    """
+
+    def get_record_type(family: object) -> str:
+        """Return the record type for the given family"""
+        if family == socket.AF_INET6:
+            return "AAAA"
+        return "A"
+
+    r53 = ctx.obj["r53"]
+    profile = ctx.obj["profile"]
+    lookup_url = ctx.obj["lookup_url"]
+    host = ctx.obj["host"]
+    zone_id = ctx.obj["zone_id"]
+    domain = ctx.obj["domain"]
+    ttl = ctx.obj["ttl"]
 
     for family in (socket.AF_INET, socket.AF_INET6):
-        if family == socket.AF_INET:
-            record_type = "A"
-        else:
-            record_type = "AAAA"
-
         # get current IP
         ddns_host = f"{host}.{domain}"
         try:
@@ -124,10 +131,10 @@ def run_check(ctx) -> None:
                 f"{family.name}: Local IP ({my_ip}) doesn't match currently registered IP for {host} ({ddns_ip}) - update required"
             )
 
-            # update R53
             click.echo(
-                f"{family.name}: Updating {ddns_host} to {my_ip} ({record_type}, {ttl=})"
+                f"{family.name}: Updating {ddns_host} to {my_ip} ({get_record_type(family)}, {ttl=})"
             )
+            # update R53 using an UPSERT change batch
             try:
                 response = r53.change_resource_record_sets(
                     HostedZoneId=zone_id,
@@ -138,7 +145,7 @@ def run_check(ctx) -> None:
                                 "Action": "UPSERT",
                                 "ResourceRecordSet": {
                                     "Name": f"{ddns_host}",
-                                    "Type": f"{record_type}",
+                                    "Type": f"{get_record_type(family)}",
                                     "TTL": ttl,
                                     "ResourceRecords": [{"Value": f"{my_ip}"}],
                                 },
@@ -150,7 +157,7 @@ def run_check(ctx) -> None:
                 click.echo(f"ERROR: {ex}")
                 sys.exit(1)
             click.echo(
-                f"{family.name}: Update complete - {ddns_host} = {my_ip} ({record_type}) (TTL {ttl})"
+                f"{family.name}: Update complete - {ddns_host} = {my_ip} ({get_record_type(family)}) (TTL {ttl})"
             )
 
 
@@ -191,13 +198,6 @@ def run_check(ctx) -> None:
     help="Manually set the DDNS domain (defaults to lookup from R53 zone ID)",
 )
 @click.option(
-    "--record-type",
-    "-r",
-    default=os.environ.get("DDNS_TYPE", DEFAULT_TYPE),
-    show_default=True,
-    help="DNS record type",
-)
-@click.option(
     "--ttl",
     "-t",
     default=os.environ.get("DDNS_TTL", DEFAULT_TTL),
@@ -205,7 +205,7 @@ def run_check(ctx) -> None:
     help="DNS record TTL",
 )
 @click.pass_context
-def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
+def cli(ctx, profile, lookup_url, host, zone_id, domain, ttl):
     """
     \b
     Perform a DDNS update if local IP doesn't match currently registered one.
@@ -220,13 +220,12 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
         ctx.exit()
 
     ctx.ensure_object(dict)
-    ctx.obj['profile'] = profile
-    ctx.obj['lookup_url'] = lookup_url
-    ctx.obj['host'] = host
-    ctx.obj['zone_id'] = zone_id
-    ctx.obj['domain'] = domain
-    ctx.obj['record_type'] = record_type
-    ctx.obj['ttl'] = ttl
+    ctx.obj["profile"] = profile
+    ctx.obj["lookup_url"] = lookup_url
+    ctx.obj["host"] = host
+    ctx.obj["zone_id"] = zone_id
+    ctx.obj["domain"] = domain
+    ctx.obj["ttl"] = ttl
 
     # set up the prereqs
     if not host:
@@ -247,11 +246,11 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, record_type, ttl):
     if not domain:
         try:
             r53 = b3s.client("route53")
-            ctx.obj['r53'] = r53
+            ctx.obj["r53"] = r53
             zone_info = r53.get_hosted_zone(Id=zone_id)
             domain = zone_info["HostedZone"]["Name"]
             click.echo(f"Domain determined from route53: {domain}")
-            ctx.obj['domain'] = domain
+            ctx.obj["domain"] = domain
         except Exception as ex:
             click.echo(f"ERROR: {ex}")
             sys.exit(1)
