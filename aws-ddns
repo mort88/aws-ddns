@@ -241,12 +241,12 @@ def cli(ctx, profile, lookup_url, host, zone_id, domain, ttl):
     except botocore.exceptions.ProfileNotFound as ex:
         click.echo(f"ERROR: {ex}")
         print_help()
+    r53 = b3s.client("route53")
+    ctx.obj["r53"] = r53
 
     # if domain is not specified manually we fetch it from the R53 zone ID
     if not domain:
         try:
-            r53 = b3s.client("route53")
-            ctx.obj["r53"] = r53
             zone_info = r53.get_hosted_zone(Id=zone_id)
             domain = zone_info["HostedZone"]["Name"]
             click.echo(f"Domain determined from route53: {domain}")
