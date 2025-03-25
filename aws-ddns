@@ -126,7 +126,7 @@ def run_check(ctx) -> None:
             click.echo(
                 f"{family.name}: Local IP ({my_ip}) matches currently registered IP for {host} - no change"
             )
-        else:
+        elif ddns_ip:
             click.echo(
                 f"{family.name}: Local IP ({my_ip}) doesn't match currently registered IP for {host} ({ddns_ip}) - update required"
             )
